@@ -29,25 +29,24 @@ impl<E: std::error::Error> std::error::Error for LocatedError<E> {
 /// Display
 impl<E: std::error::Error> std::fmt::Display for LocatedError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const PAT: &str = "; at (";
+        const PAT: &str = "; By ";
         let inner_msg = format!("{}", self.inner);
-        println!("{}", inner_msg);
         if let Some(pos) = inner_msg.find(PAT) {
             write!(
                 f,
-                "{}; at ({}) by {}{}",
+                "{}; By {} ({}){}",
                 &inner_msg[..pos],
-                self.location,
                 std::any::type_name::<E>(),
+                self.location,
                 &inner_msg[pos..]
             )
         } else {
             write!(
                 f,
-                "{}; at ({}) by {}",
+                "{}; By {}({});",
                 self.inner,
+                std::any::type_name::<E>(),
                 self.location,
-                std::any::type_name::<E>()
             )
         }
     }
@@ -95,7 +94,7 @@ impl<E: std::error::Error> LocatedError<E> {
         const CAUSED_BY_PAT: &str = "\nCaused by: ";
         const CAUSED_BY: &str = "Caused by: ";
 
-        let inner_msg = format!("{:?}", self.inner);
+        let inner_msg = format!("{:?} ({})", self.inner, self.location);
 
         let index = if let Some(cause_index) = inner_msg.find(CAUSED_BY_PAT) {
             // write the head
@@ -124,8 +123,8 @@ impl<E: std::error::Error> LocatedError<E> {
 
         // write the rest
         if index > 0 {
-            let msg_left = &inner_msg[index + 1..];
-            write!(f, "{}", msg_left)?;
+            let msg_remain = &inner_msg[index + 1..];
+            write!(f, "{}", msg_remain)?;
         }
         write!(f, "")
     }
@@ -178,22 +177,14 @@ unsafe impl<T: std::error::Error + Send> Send for LocatedError<T> {}
 unsafe impl<T: std::error::Error + Sync> Sync for LocatedError<T> {}
 
 // Clone
-#[cfg(any(feature = "backtrace", feature = "force_backtrace"))]
 impl<T: std::error::Error + Clone> Clone for LocatedError<T> {
     fn clone(&self) -> Self {
         LocatedError {
             inner: self.inner.clone(),
             location: self.location,
+
+            #[cfg(any(feature = "backtrace", feature = "force_backtrace"))]
             backtrace: self.backtrace.clone(),
-        }
-    }
-}
-#[cfg(not(any(feature = "backtrace", feature = "force_backtrace")))]
-impl<T: std::error::Error + Clone> Clone for LocatedError<T> {
-    fn clone(&self) -> Self {
-        LocatedError {
-            inner: self.inner.clone(),
-            location: self.location,
         }
     }
 }

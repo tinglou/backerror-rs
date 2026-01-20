@@ -1,19 +1,14 @@
 use std::backtrace::{Backtrace, BacktraceStatus};
 
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct StackTrace {
     pub frames: Vec<StackTraceFrame>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct StackTraceFrame {
-    #[serde(rename = "fn")]
     pub func: String,
-    #[serde(default)]
     pub file: String,
-    #[serde(default)]
     pub line: u32,
 }
 
@@ -24,36 +19,84 @@ impl StackTrace {
             return None;
         }
 
-        let msg = format!("{:?}", backtrace);
-        let offset = "Backtrace ".len();
-        let msg = format!(r#"{{"frames": {}}}"#, &msg[offset..]);
+        let debug = format!("{:?}", backtrace);
 
-        match json5::from_str::<StackTrace>(&msg) {
-            Ok(mut stacktrace) => {
+        match Self::parse_debug_str(&debug) {
+            Some(mut stacktrace) => {
                 stacktrace.nomalize();
                 Some(stacktrace)
             }
-            Err(_) => None,
+            None => None,
         }
     }
 
     /// parse [`Backtrace`]'s debug output
-    /// ```txt
-    /// Backtrace [{ fn: "std::backtrace_rs::backtrace::win64::trace", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\std\src\..\..\backtrace\src\backtrace\win64.rs", line: 85 }, { fn: "std::backtrace_rs::backtrace::trace_unsynchronized", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\std\src\..\..\backtrace\src\backtrace\mod.rs", line: 66 }, { fn: "std::backtrace::Backtrace::create", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\std\src\backtrace.rs", line: 331 }, { fn: "std::backtrace::Backtrace::force_capture", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\std\src\backtrace.rs", line: 312 }, { fn: "backerror::stacktrace::tests::parse_backtrace", file: ".\src\stacktrace.rs", line: 118 }, { fn: "backerror::stacktrace::tests::parse_backtrace::closure$0", file: ".\src\stacktrace.rs", line: 117 }, { fn: "core::ops::function::FnOnce::call_once<backerror::stacktrace::tests::parse_backtrace::closure_env$0,tuple$<> >", file: "C:\Users\admin\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib\rustlib\src\rust\library\core\src\ops\function.rs", line: 250 }, { fn: "core::ops::function::FnOnce::call_once", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\core\src\ops\function.rs", line: 250 }, { fn: "test::__rust_begin_short_backtrace<enum2$<core::result::Result<tuple$<>,alloc::string::String> >,enum2$<core::result::Result<tuple$<>,alloc::string::String> > (*)()>", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\test\src\lib.rs", line: 663 }, { fn: "test::run_test_in_process", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\test\src\lib.rs", line: 686 }, { fn: "test::run_test::closure$0", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\test\src\lib.rs", line: 607 }, { fn: "test::run_test::closure$1", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\test\src\lib.rs", line: 637 }, { fn: "std::sys::backtrace::__rust_begin_short_backtrace<test::run_test::closure_env$1,tuple$<> >", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\std\src\sys\backtrace.rs", line: 158 }, { fn: "core::ops::function::FnOnce::call_once<std::thread::impl$0::spawn_unchecked_::closure_env$1<test::run_test::closure_env$1,tuple$<> >,tuple$<> >", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\core\src\ops\function.rs", line: 250 }, { fn: "alloc::boxed::impl$29::call_once", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\alloc\src\boxed.rs", line: 1985 }, { fn: "alloc::boxed::impl$29::call_once", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\alloc\src\boxed.rs", line: 1985 }, { fn: "std::sys::thread::windows::impl$0::new::thread_start", file: "/rustc/f8297e351a40c1439a467bbbb6879088047f50b3/library\std\src\sys\thread\windows.rs", line: 60 }, { fn: "BaseThreadInitThunk" }, { fn: "RtlUserThreadStart" }]
-    /// ```
-    fn parse_debug_str(debug: &str) -> Option<Self> {
-        None
+    pub fn parse_debug_str(debug: &str) -> Option<Self> {
+        const LEADING: &str = "Backtrace ";
+
+        // Extract the content inside "Backtrace [...]"
+        let debug = debug.trim();
+
+        // Find the start of the frames list
+        if !debug.starts_with(LEADING) {
+            return None;
+        }
+
+        // Skip "Backtrace " part
+        let frames_part = &debug[LEADING.len()..].trim();
+
+        // Check if it starts with '[' and ends with ']'
+        if !frames_part.starts_with('[') || !frames_part.ends_with(']') {
+            return None;
+        }
+
+        // Extract content between outer brackets
+        let content = &frames_part[1..frames_part.len() - 1];
+
+        let mut frames = Vec::new();
+        let mut brace_depth = 0;
+        let mut current_frame_start = 0;
+        let mut chars = content.char_indices().peekable();
+
+        while let Some((i, ch)) = chars.next() {
+            match ch {
+                '{' => {
+                    if brace_depth == 0 {
+                        current_frame_start = i;
+                    }
+                    brace_depth += 1;
+                }
+                '}' => {
+                    brace_depth -= 1;
+                    if brace_depth == 0 {
+                        // Found a complete frame
+                        let frame_str = &content[current_frame_start..=i];
+                        if let Some(frame) = parse_single_frame(frame_str) {
+                            frames.push(frame);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if frames.is_empty() {
+            None
+        } else {
+            let stacktrace = StackTrace { frames };
+            Some(stacktrace)
+        }
     }
 
-    /// normalize stacktrace
-    /// 1. remove starting frames owned by [`Backtrace`]
-    /// 2. remove the leading prefix from file path
+    /// Normalize stacktrace
+    ///
+    /// * Remove leading frames owned by [`Backtrace`]
     fn nomalize(&mut self) {
-        //  1. remove starting frames owned by [`Backtrace`]
+        //  * Remove leading frames owned by [`Backtrace`]
         loop {
             if let Some(first) = self.frames.first() {
                 if first.func.starts_with("std::backtrace")
-                    || first.func.starts_with("<backerror::")
+                    || first.func.starts_with("backerror::located_error")
                 {
                     self.frames.remove(0);
                 } else {
@@ -63,39 +106,96 @@ impl StackTrace {
                 break;
             }
         }
+    }
+}
 
-        // 2. remove the leading prefix from file path
-        // 2.1 reverse find possible source dir, "src", "tests", "bench", "examples"
-        // 2.2 get the crate name, remove all path parts before it
-        for frame in self.frames.iter_mut() {
-            #[cfg(windows)]
-            let src_pat = vec!["\\src\\", "\\tests\\", "\\bench\\", "\\examples\\"];
-            #[cfg(not(windows))]
-            let src_pat = vec!["/src/", "/tests/", "/bench/", "/examples/"];
-            let mut max_index = 0;
-            for (_i, pat) in src_pat.iter().enumerate() {
-                if let Some(index) = Self::find_crate_name_offset(&frame.file, pat) {
-                    if index > max_index {
-                        max_index = index;
-                    }
-                }
-            }
-            if max_index > 0 {
-                frame.file = frame.file[max_index..].to_string();
-            }
+/// Parse a single frame from the format: { fn: "...", file: "...", line: ... }
+fn parse_single_frame(frame_str: &str) -> Option<StackTraceFrame> {
+    // Remove the surrounding braces
+    let trimmed = frame_str.trim();
+    if !trimmed.starts_with('{') || !trimmed.ends_with('}') {
+        return None;
+    }
+
+    let inner = &trimmed[1..trimmed.len() - 1].trim();
+
+    // We'll extract values from the key-value pairs
+    let func;
+    let mut file = String::new();
+    let mut line = 0u32;
+
+    // Look for fn, file, and line in the string
+    // Format: { fn: "func_name", file: "file_path", line: 123 }
+
+    // Extract function name
+    if let Some(func_match) = find_key_value(inner, r#"fn:"#) {
+        func = func_match;
+    } else {
+        return None;
+    }
+
+    // Extract file name
+    if let Some(file_match) = find_key_value(inner, r#"file:"#) {
+        file = file_match;
+    }
+
+    // Extract line number
+    if let Some(line_str) = find_key_value(inner, r#"line:"#) {
+        if let Ok(parsed_line) = line_str.parse::<u32>() {
+            line = parsed_line;
         }
     }
 
-    /// "/home/user/project/src/main.rs" => "project/src/main.rs"
-    fn find_crate_name_offset(path: &str, src_pat: &str) -> Option<usize> {
-        // firstly find position of "/src/"
-        if let Some(src_index) = path.rfind(src_pat) {
-            // find the nestest position of "/"
-            if let Some(slash_index) = path[..src_index].rfind('/') {
-                Some(slash_index + 1)
-            } else {
-                Some(0)
+    Some(StackTraceFrame { func, file, line })
+}
+
+/// Find the value for a given key in a string of format `key: "value"` or `key: 123`
+fn find_key_value(input: &str, key: &str) -> Option<String> {
+    let key_pos = input.find(key)?;
+    let after_key = &input[key_pos + key.len()..];
+    let trimmed_after_key = after_key.trim_start();
+
+    if trimmed_after_key.starts_with('"') {
+        // Handle quoted string value
+        let start_idx = key_pos + key.len() + trimmed_after_key.len()
+            - trimmed_after_key.trim_start_matches('"').len();
+
+        // Find the closing quote, handling escaped quotes
+        let mut chars = trimmed_after_key[1..].char_indices();
+        let mut prev_char = ' ';
+        while let Some((idx, ch)) = chars.next() {
+            if ch == '"' && prev_char != '\\' {
+                // Found the end of the quoted string
+                let value = &input[start_idx + 1..start_idx + idx + 1];
+                return Some(value.to_string());
             }
+            prev_char = ch;
+        }
+        None
+    } else {
+        // Handle non-quoted value (likely a number)
+        let start_idx = key_pos + key.len();
+        let remaining = &input[start_idx..];
+        let trimmed_remaining = remaining.trim_start();
+
+        // Find the end of the value (next comma, space+}, or }
+        let mut chars = trimmed_remaining.char_indices();
+        let mut end_pos = trimmed_remaining.len();
+        while let Some((idx, ch)) = chars.next() {
+            if ch == ','
+                || (ch == ' '
+                    && idx + 1 < trimmed_remaining.len()
+                    && trimmed_remaining.chars().nth(idx + 1) == Some('}'))
+                || ch == '}'
+            {
+                end_pos = idx;
+                break;
+            }
+        }
+
+        let value = trimmed_remaining[..end_pos].trim();
+        if !value.is_empty() {
+            Some(value.to_string())
         } else {
             None
         }
@@ -107,27 +207,18 @@ mod tests {
     use super::StackTrace;
 
     #[test]
-    fn find_crate_name_offset() {
-        let path = "/home/user/project/src/main.rs";
-        let src_pat = "/src/";
-        let index = StackTrace::find_crate_name_offset(path, src_pat).unwrap();
-
-        println!("index: {}, substr: {}", index, &path[index..]);
-
-        let path = "project/src/main.rs";
-        let src_pat = "/src/";
-        let index = StackTrace::find_crate_name_offset(path, src_pat).unwrap();
-
-        println!("index: {}, substr: {}", index, &path[index..]);
-    }
-
-    #[test]
     fn parse_backtrace() {
         let backtrace = std::backtrace::Backtrace::force_capture();
 
-        println!("{:?}", backtrace);
+        let msg = format!("{:?}", backtrace);
+
+        let stack = StackTrace::parse_debug_str(&msg);
+
+        assert!(stack.is_some());
+        let stack = stack.unwrap();
+        println!("len {}", stack.frames.len());
 
         println!("{}", backtrace);
-
+        println!("{:?}", stack);
     }
 }
