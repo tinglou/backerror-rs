@@ -1,0 +1,27 @@
+[package]
+name = "backerror"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+backerror-macros = { path = "../backerror-macros" }
+
+# because the Backtrace type is not stable, `serde` and `ron` are used to parse the backtrace's debug format
+serde = {optional = true, version = "1.0", features = ["derive"] }
+json5 = {optional = true, version = "0.4" }
+
+[dev-dependencies]
+thiserror = "2"
+
+[features]
+default = ["force_backtrace", "release_off"]
+
+# only if environment variable RUST_BACKTRACE or RUST_LIB_BACKTRACE is set
+backtrace = ["serde", "json5"]
+
+# force backtrace even if environment variable is not set
+force_backtrace = ["serde", "json5"]
+
+# turn off attribute macro in release mode
+release_off = ["backerror-macros/release_off"]
+
