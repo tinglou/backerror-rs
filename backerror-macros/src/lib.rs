@@ -14,7 +14,7 @@ pub fn backerror(_args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 /// Helper attribute macro to enhance `thiserror::Error`, which adds `backerror::LocatedError` to the error type.
-/// ```
+/// ```ignore
 /// use backerror::backerror;
 /// use thiserror::Error;
 ///

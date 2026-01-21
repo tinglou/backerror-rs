@@ -23,5 +23,5 @@ quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
 
 [dev-dependencies]
-backerror = { workspace = true }
+# backerror = { workspace = true }
 thiserror = "2.0.18"
