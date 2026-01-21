@@ -14,11 +14,17 @@ When an error is thrown, error chain and stack trace are captured and displayed 
 
 ## Installation
 
-Add this to your `Cargo.toml`:
+Execute the following command to add `backerror` to your project:
+
+```bash
+cargo add backerror
+```
+
+Or add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-backerror = { git = "https://github.com/your-repo/backerror-rs" }
+backerror = "0.1"
 thiserror = "2.0"
 ```
 
