@@ -11,7 +11,7 @@ keywords.workspace = true
 repository.workspace = true
 
 [dependencies]
-backerror-macros = { path = "../backerror-macros" }
+backerror-macros = { workspace = true }
 
 
 [dev-dependencies]

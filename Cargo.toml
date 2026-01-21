@@ -1,10 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "backerror",
-    "backerror-macros",
-]
+members = ["backerror", "backerror-macros"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,5 +10,9 @@ license = "Apache-2.0"
 edition = "2021"
 categories = ["rust-patterns", "error-handling", "stacktrace"]
 documentation = "https://github.com/tinglou/backerror-rs"
-keywords = ["error", "error-handling", "derive", "backtrace", "stacktrace", "thiserror"]
+keywords = ["error", "error-handling", "backtrace", "stacktrace", "thiserror"]
 repository = "https://github.com/tinglou/backerror-rs"
+
+[workspace.dependencies]
+backerror = { path = "./backerror" }
+backerror-macros = { path = "./backerror-macros" }
