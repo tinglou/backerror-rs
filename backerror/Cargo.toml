@@ -1,6 +1,8 @@
 [package]
 name = "backerror"
 description = "Java style backtrace for Rust"
+readme = "../README.md"
+
 version.workspace = true
 authors.workspace = true
 license.workspace = true

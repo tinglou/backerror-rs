@@ -1,6 +1,7 @@
 [package]
 name = "backerror-macros"
 description = "Java style backtrace for Rust"
+readme = "../README.md"
 
 version.workspace = true
 authors.workspace = true
