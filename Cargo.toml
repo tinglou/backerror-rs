@@ -14,5 +14,5 @@ keywords = ["error", "error-handling", "backtrace", "stacktrace", "thiserror"]
 repository = "https://github.com/tinglou/backerror-rs"
 
 [workspace.dependencies]
-backerror = { path = "./backerror" }
-backerror-macros = { path = "./backerror-macros" }
+backerror = { path = "./backerror", version = "0.1.0" }
+backerror-macros = { path = "./backerror-macros", version = "0.1.0" }
