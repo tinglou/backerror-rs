@@ -4,15 +4,15 @@ resolver = "2"
 members = ["backerror", "backerror-macros"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ting Lou <ting.lou@gmail.com>"]
 license = "Apache-2.0"
 edition = "2021"
 categories = ["rust-patterns", "development-tools::debugging"]
-documentation = "https://github.com/tinglou/backerror-rs"
+documentation = "https://docs.rs/backerror/"
 keywords = ["error", "error-handling", "backtrace", "stacktrace", "thiserror"]
 repository = "https://github.com/tinglou/backerror-rs"
 
 [workspace.dependencies]
-backerror = { path = "./backerror", version = "0.1.0" }
-backerror-macros = { path = "./backerror-macros", version = "0.1.0" }
+backerror = { path = "./backerror", version = "0.1.1" }
+backerror-macros = { path = "./backerror-macros", version = "0.1.1" }
