@@ -1,5 +1,5 @@
 //! Patch for `thiserror`
-#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../README.md")]
 
 mod located_error;
 
