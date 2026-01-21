@@ -1,15 +1,16 @@
 # backerror
 
 `backerror` is a Rust library that enhances error handling by automatically capturing location information and stack traces for errors. It provides a seamless integration with [thiserror](https://github.com/dtolnay/thiserror) to improve debugging capabilities by tracking where errors originate in your code.
+When an error is thrown, error chain and stack trace are captured and displayed in a user-friendly format.
 
 ## Features
 
-- **Automatic Location Tracking**: Automatically captures the source location (file, line, column) where an error originates
-- **Stack Trace Capture**: Optionally captures full stack traces for better debugging
-- **Seamless Integration**: Works with existing `thiserror`-based error types
-- **Zero-cost Abstraction**: Only incurs runtime cost when enabled (can be disabled in release builds)
-- **Transparent Wrapping**: Preserves the original error type while adding location metadata
-- **Conditional Compilation**: Can be disabled in release builds to minimize overhead
+* **Automatic Location Tracking**: Automatically captures the source location (file, line, column) where an error originates
+* **Stack Trace Capture**: Optionally captures full stack traces for better debugging
+* **Seamless Integration**: Works with existing `thiserror`-based error types
+* **Zero-cost Abstraction**: Only incurs runtime cost when enabled (can be disabled in release builds)
+* **Transparent Wrapping**: Preserves the original error type while adding location metadata
+* **Conditional Compilation**: Can be disabled in release builds to minimize overhead
 
 ## Installation
 
@@ -121,9 +122,9 @@ Caused by: std::io::error::Error: The system cannot find the file specified. (os
 
 The crate provides several optional features:
 
-- `backtrace`: Enables backtrace capture only when `RUST_BACKTRACE` environment variable is set
-- `force_backtrace`: Forces backtrace capture regardless of environment variables (enabled by default)
-- `release_off`: Disables the backerror transformation in release builds (enabled by default)
+* `backtrace`: Enables backtrace capture only when `RUST_BACKTRACE` environment variable is set
+* `force_backtrace`: Forces backtrace capture regardless of environment variables (enabled by default)
+* `release_off`: Disables the backerror transformation in release builds (enabled by default)
 
 To customize features:
 
@@ -132,13 +133,12 @@ To customize features:
 backerror = { version = "...", default-features = false, features = ["force_backtrace"] }
 ```
 
-
 ## How It Works
 
 The `backerror` crate works by:
 
 1. Providing a `#[backerror]` attribute macro that transforms your error types
-2. Converting `#[from] T` attributes to `#[from] LocatedError<T>` 
+2. Converting `#[from] T` attributes to `#[from] LocatedError<T>`
 3. Using Rust's `#[track_caller]` attribute to capture the location where errors are converted
 4. Optionally capturing a full backtrace when the error is created
 
