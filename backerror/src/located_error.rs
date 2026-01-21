@@ -29,12 +29,12 @@ impl<E: std::error::Error> std::error::Error for LocatedError<E> {
 /// Display
 impl<E: std::error::Error> std::fmt::Display for LocatedError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const PAT: &str = "; By ";
+        const PAT: &str = "; Caused by ";
         let inner_msg = format!("{}", self.inner);
         if let Some(pos) = inner_msg.find(PAT) {
             write!(
                 f,
-                "{}; By {} ({}){}",
+                "{}; Caused by {} ({}){}",
                 &inner_msg[..pos],
                 std::any::type_name::<E>(),
                 self.location,
@@ -43,7 +43,7 @@ impl<E: std::error::Error> std::fmt::Display for LocatedError<E> {
         } else {
             write!(
                 f,
-                "{}; By {}({});",
+                "{}; Caused by {}({});",
                 self.inner,
                 std::any::type_name::<E>(),
                 self.location,
@@ -92,7 +92,6 @@ impl<E: std::error::Error> LocatedError<E> {
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
         const CAUSED_BY_PAT: &str = "\nCaused by: ";
-        const CAUSED_BY: &str = "Caused by: ";
 
         let inner_msg = format!("{:?} ({})", self.inner, self.location);
 
@@ -108,7 +107,12 @@ impl<E: std::error::Error> LocatedError<E> {
         };
 
         // inject the stacktrace
-        writeln!(f, "{}{}", CAUSED_BY, std::any::type_name::<E>())?;
+        writeln!(
+            f,
+            "Caused by: {}: {}",
+            std::any::type_name::<E>(),
+            self.pure_desc()
+        )?;
         for frame in stacktrace.frames {
             let line = if frame.file.is_empty() {
                 format!("\tat {}", frame.func)
@@ -127,6 +131,18 @@ impl<E: std::error::Error> LocatedError<E> {
             write!(f, "{}", msg_remain)?;
         }
         write!(f, "")
+    }
+
+    fn pure_desc(&self) -> String {
+        const PAT: &str = "; Caused by ";
+
+        let desc = self.inner.to_string();
+        let desc = if let Some(pos) = desc.find(PAT) {
+            desc[..pos].to_string()
+        } else {
+            desc
+        };
+        desc
     }
 }
 
