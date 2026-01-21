@@ -5,3 +5,13 @@ members = [
     "backerror",
     "backerror-macros",
 ]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Ting Lou <ting.lou@gmail.com>"]
+license = "Apache-2.0"
+edition = "2021"
+categories = ["rust-patterns", "error-handling", "stacktrace"]
+documentation = "https://github.com/tinglou/backerror-rs"
+keywords = ["error", "error-handling", "derive", "backtrace", "stacktrace", "thiserror"]
+repository = "https://github.com/tinglou/backerror-rs"

@@ -6,12 +6,31 @@ use syn::{
     parse_macro_input, punctuated::Punctuated, Item, ItemEnum, ItemStruct, Meta, Path, Token,
 };
 
+/// backerror
 #[cfg(not(any(not(feature = "release_off"), debug_assertions)))]
 #[proc_macro_attribute]
 pub fn backerror(_args: TokenStream, input: TokenStream) -> TokenStream {
     input
 }
 
+/// Helper attribute macro to enhance `thiserror::Error`, which adds `backerror::LocatedError` to the error type.
+/// ```
+/// use backerror::backerror;
+/// use thiserror::Error;
+///
+/// #[backerror]
+/// #[derive(Debug, Error)]
+/// pub enum MyError1 {
+///     #[error("{0}")]
+///     IoError(#[from] std::io::Error),
+/// }
+///
+/// #[backerror]
+/// #[derive(Debug, Error)]
+/// #[error(transparent)]
+/// pub struct MyError(#[from] std::io::Error);
+///
+/// ```
 #[cfg(any(not(feature = "release_off"), debug_assertions))]
 #[proc_macro_attribute]
 pub fn backerror(_args: TokenStream, input: TokenStream) -> TokenStream {

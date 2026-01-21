@@ -1,3 +1,6 @@
+//! Patch for `thiserror`
+#![doc = include_str!("../../README.md")]
+
 mod located_error;
 
 #[cfg(any(feature = "backtrace", feature = "force_backtrace"))]

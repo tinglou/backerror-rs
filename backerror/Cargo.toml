@@ -1,7 +1,14 @@
 [package]
 name = "backerror"
-version = "0.1.0"
-edition = "2021"
+description = "Java style backtrace for Rust"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+categories.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+repository.workspace = true
 
 [dependencies]
 backerror-macros = { path = "../backerror-macros" }
