@@ -13,14 +13,14 @@ mod tests {
     #[derive(Debug, Error)]
     pub enum MyError2 {
         #[error("By MyError2: {0}")]
-        MyError1(#[from] MyError1),
+        My1(#[from] MyError1),
     }
 
     #[backerror]
     #[derive(Debug, Error)]
     pub enum MyError3 {
         #[error("By MyError3: {0}")]
-        MyError2(#[from] MyError2),
+        My2(#[from] MyError2),
     }
 
     fn throw_error1() -> Result<(), MyError1> {
