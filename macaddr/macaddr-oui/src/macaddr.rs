@@ -13,7 +13,7 @@ const MULTICAST_ADDR_BIT: u8 = 0x01;
 /// Mac Address
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct MacAddress([u8; 6]);
+pub struct MacAddress(pub(crate) [u8; 6]);
 impl MacAddress {
     pub const fn new(mac: [u8; 6]) -> Self {
         MacAddress(mac)
