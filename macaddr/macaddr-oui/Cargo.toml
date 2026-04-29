@@ -8,6 +8,7 @@ categories.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 repository.workspace = true
+build = "build.rs"
 
 [features]
 default = ["std", "serde", "pnet"]
