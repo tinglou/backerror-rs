@@ -8,7 +8,7 @@ categories = [
     "no-std",
 ] # https://crates.io/category_slugs
 documentation = "https://docs.rs/macaddr-ouidb/"
-keywords = ["mac", "oui", "network", "eui48", "wireshark", "ethernet", "address", "lookup"]
+keywords = ["mac", "oui", "eui48", "wireshark", "lookup"]
 
 version.workspace = true
 authors.workspace = true
