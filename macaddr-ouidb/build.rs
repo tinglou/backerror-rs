@@ -643,10 +643,23 @@ fn main() {
     let src = "nmap-mac-prefixes";
     // 监控源文件变化，当源文件变化时重新运行 build script
     println!("cargo:rerun-if-changed={}", src);
+    println!("cargo:rerun-if-changed=build.rs");
 
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let input_path = Path::new(manifest_dir).join(src);
     let output_path = Path::new(manifest_dir).join("src").join("oui_data.rs");
+
+    // 判断是否需要重新生成
+    let need_gen = if output_path.exists() {
+        let src_mtime = fs::metadata(src).unwrap().modified().unwrap();
+        let dest_mtime = fs::metadata(&output_path).unwrap().modified().unwrap();
+        src_mtime > dest_mtime // 源文件比目标新 → 需要生成
+    } else {
+        true // 目标不存在 → 必须生成
+    };
+    if !need_gen {
+        return;
+    }
 
     // 解析文件
     let entries = parse_nmap_file(&input_path);
