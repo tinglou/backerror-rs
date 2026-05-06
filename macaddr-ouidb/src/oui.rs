@@ -11,7 +11,8 @@ use crate::MacAddress;
 
 const OUI_SUBTABLE: &str = "Ieee Registration Authority";
 
-const OUI_VIRTUAL: [&'static str; 5] = [
+const OUI_VIRTUAL: [&'static str; 6] = [
+    "VMware",
     "QEMU virtual NIC",
     "Bochs virtual NIC",
     "PearPC virtual NIC",
