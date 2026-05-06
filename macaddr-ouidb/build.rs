@@ -581,7 +581,7 @@ impl OuiDataBuilder {
                 SubtableRef::Oui36(_) => "OUI-36",
             };
             println!(
-                "cargo:warning=  {:02X}{:02X}{:02X} ({}, {} entries)",
+                "cargo:warning=  - {:02X}{:02X}{:02X} ({}, {} entries)",
                 prefix[0], prefix[1], prefix[2], type_str, entry_count
             );
         }
