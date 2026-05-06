@@ -145,7 +145,7 @@ impl OuiDataBuilder {
     }
 
     /// 构建所有数据结构
-    fn build(&mut self, entries: Vec<OuiEntry>) {
+    fn build(&mut self, entries: Vec<OuiEntry>, has_ma_s: bool) {
         // 按前缀长度分组
         // entries_24: 3 字节前缀 -> 名称列表
         // entries_28: 3 字节前缀 -> (4 字节高 4 位，名称) 列表
@@ -155,6 +155,11 @@ impl OuiDataBuilder {
         let mut entries_36: BTreeMap<[u8; 3], Vec<(u16, usize)>> = BTreeMap::new();
 
         for entry in entries {
+            // 如果是 36-bit 且未启用 ma-s，跳过整个条目（包括名称）
+            if entry.bit_len == 36 && !has_ma_s {
+                continue;
+            }
+
             let name_idx = self.get_or_add_name(&entry.org_name);
             let bytes = Self::parse_prefix_hex(&entry.prefix_str);
 
@@ -176,13 +181,16 @@ impl OuiDataBuilder {
                         .push((key4, name_idx));
                 }
                 36 => {
-                    // 按 3 字节前缀分组，存储第 4 字节 + 第 5 字节高 4 位
-                    let prefix3: [u8; 3] = [bytes[0], bytes[1], bytes[2]];
-                    let key5 = ((bytes[3] as u16) << 8) | ((bytes[4] & 0xF0) as u16);
-                    entries_36
-                        .entry(prefix3)
-                        .or_insert_with(Vec::new)
-                        .push((key5, name_idx));
+                    // 只有启用 ma-s feature 时才处理 36-bit 条目
+                    if has_ma_s {
+                        // 按 3 字节前缀分组，存储第 4 字节 + 第 5 字节高 4 位
+                        let prefix3: [u8; 3] = [bytes[0], bytes[1], bytes[2]];
+                        let key5 = ((bytes[3] as u16) << 8) | ((bytes[4] & 0xF0) as u16);
+                        entries_36
+                            .entry(prefix3)
+                            .or_insert_with(Vec::new)
+                            .push((key5, name_idx));
+                    }
                 }
                 _ => {}
             }
@@ -218,31 +226,33 @@ impl OuiDataBuilder {
             }
         }
 
-        // 构建 36 位子表：每个 3 字节前缀对应一个子表
-        for (prefix3, entries_list) in entries_36 {
-            let subtable_idx = self.oui36_tables.len();
-            let entry_count = entries_list.len(); // 先保存长度
-            let mut table: Vec<Oui36Entry> = entries_list
-                .into_iter()
-                .map(|(key5, name_idx)| Oui36Entry {
-                    prefix: key5,
-                    name_idx,
-                })
-                .collect();
-            table.sort();
-            table.dedup_by(|a, b| a.prefix == b.prefix);
-            self.oui36_tables.push(table);
-            self.oui36_idx_to_prefix.insert(subtable_idx, prefix3);
+        // 构建 36 位子表：每个 3 字节前缀对应一个子表（只有启用 ma-s 时才构建）
+        if has_ma_s {
+            for (prefix3, entries_list) in entries_36 {
+                let subtable_idx = self.oui36_tables.len();
+                let entry_count = entries_list.len(); // 先保存长度
+                let mut table: Vec<Oui36Entry> = entries_list
+                    .into_iter()
+                    .map(|(key5, name_idx)| Oui36Entry {
+                        prefix: key5,
+                        name_idx,
+                    })
+                    .collect();
+                table.sort();
+                table.dedup_by(|a, b| a.prefix == b.prefix);
+                self.oui36_tables.push(table);
+                self.oui36_idx_to_prefix.insert(subtable_idx, prefix3);
 
-            oui24_to_subtable.insert(prefix3, SubtableRef::Oui36(subtable_idx));
+                oui24_to_subtable.insert(prefix3, SubtableRef::Oui36(subtable_idx));
 
-            // 只有当 entries_24 中不存在该前缀时，才记录为 subtable_only
-            if !entries_24.contains_key(&prefix3) {
-                self.subtable_only_prefixes.push((
-                    prefix3,
-                    SubtableRef::Oui36(subtable_idx),
-                    entry_count,
-                ));
+                // 只有当 entries_24 中不存在该前缀时，才记录为 subtable_only
+                if !entries_24.contains_key(&prefix3) {
+                    self.subtable_only_prefixes.push((
+                        prefix3,
+                        SubtableRef::Oui36(subtable_idx),
+                        entry_count,
+                    ));
+                }
             }
         }
 
@@ -284,7 +294,7 @@ impl OuiDataBuilder {
     }
 
     /// 生成 Rust 代码
-    fn generate_code(&self, output_path: &Path) {
+    fn generate_code(&self, output_path: &Path, has_ma_s: bool) {
         let mut code = String::new();
 
         // 生成 names 字符串
@@ -313,6 +323,10 @@ impl OuiDataBuilder {
         // 添加统计信息注释
         code.push_str("// === Generation Statistics ===\n");
         code.push_str(&format!(
+            "// - ma-s feature: {}\n",
+            if has_ma_s { "enabled" } else { "disabled" }
+        ));
+        code.push_str(&format!(
             "// - Unique names: {}, total length: {unique_names_total_length}\n",
             self.names.len()
         ));
@@ -323,12 +337,16 @@ impl OuiDataBuilder {
             self.oui28_tables.len(),
             oui28_entries
         ));
-        let oui36_entries: usize = self.oui36_tables.iter().map(|t| t.len()).sum();
-        code.push_str(&format!(
-            "// - OUI-36 tables: {}, entries: {}\n",
-            self.oui36_tables.len(),
-            oui36_entries
-        ));
+        if has_ma_s {
+            let oui36_entries: usize = self.oui36_tables.iter().map(|t| t.len()).sum();
+            code.push_str(&format!(
+                "// - OUI-36 tables: {}, entries: {}\n",
+                self.oui36_tables.len(),
+                oui36_entries
+            ));
+        } else {
+            code.push_str("// - OUI-36 tables: 0, entries: 0 (ma-s feature disabled)\n");
+        }
         code.push_str(&format!(
             "// - Subtable-only prefixes: {}\n",
             self.subtable_only_prefixes.len()
@@ -354,19 +372,6 @@ impl OuiDataBuilder {
                 ));
             }
             code.push_str("// ================================================\n\n");
-        }
-
-        // 打印日志到 stdout
-        println!("cargo:warning=Subtable-only prefixes (no 24-bit OUI entry):");
-        for (prefix, subtable_type, entry_count) in &self.subtable_only_prefixes {
-            let type_str = match subtable_type {
-                SubtableRef::Oui28(_) => "OUI-28",
-                SubtableRef::Oui36(_) => "OUI-36",
-            };
-            println!(
-                "cargo:warning=  {:02X}{:02X}{:02X} ({}, {} entries)",
-                prefix[0], prefix[1], prefix[2], type_str, entry_count
-            );
         }
 
         code.push_str("use crate::oui::{OuiSubtable, OuiTable};\n\n");
@@ -451,38 +456,45 @@ impl OuiDataBuilder {
         }
         code.push_str("];\n\n");
 
-        // 生成 oui_36 数组 - 直接内嵌所有子表数据，每表一行，添加 24 位前缀注释
-        code.push_str("#[rustfmt::skip]\n");
-        code.push_str("const OUI_36_TABLES: &[OuiSubtable<u16>] = &[\n");
-        for (idx, table) in self.oui36_tables.iter().enumerate() {
-            // 获取 24 位前缀注释
-            let prefix3 = self.oui36_idx_to_prefix.get(&idx).unwrap();
-            code.push_str(&format!(
-                "    /* {:02X}{:02X}{:02X} */ OuiSubtable {{ prefix: &[",
-                prefix3[0], prefix3[1], prefix3[2]
-            ));
-            for (i, entry) in table.iter().enumerate() {
-                if i > 0 {
-                    code.push_str(",");
+        // 生成 oui_36 数组 - 只有启用 ma-s 时才生成
+        if has_ma_s {
+            code.push_str("#[rustfmt::skip]\n");
+            code.push_str("const OUI_36_TABLES: &[OuiSubtable<u16>] = &[\n");
+            for (idx, table) in self.oui36_tables.iter().enumerate() {
+                // 获取 24 位前缀注释
+                let prefix3 = self.oui36_idx_to_prefix.get(&idx).unwrap();
+                code.push_str(&format!(
+                    "    /* {:02X}{:02X}{:02X} */ OuiSubtable {{ prefix: &[",
+                    prefix3[0], prefix3[1], prefix3[2]
+                ));
+                for (i, entry) in table.iter().enumerate() {
+                    if i > 0 {
+                        code.push_str(",");
+                    }
+                    code.push_str(&format!("0x{:04X}", entry.prefix));
                 }
-                code.push_str(&format!("0x{:04X}", entry.prefix));
-            }
-            code.push_str("], loc: &[");
+                code.push_str("], loc: &[");
 
-            // loc 字段 - 单行
-            for (i, entry) in table.iter().enumerate() {
-                if i > 0 {
-                    code.push_str(",");
+                // loc 字段 - 单行
+                for (i, entry) in table.iter().enumerate() {
+                    if i > 0 {
+                        code.push_str(",");
+                    }
+                    let offset = name_offsets[entry.name_idx];
+                    let name = &self.names[entry.name_idx];
+                    let length = name.len();
+                    let loc = ((offset as u32) << 8) | (length as u32);
+                    code.push_str(&format!("0x{:08X}", loc));
                 }
-                let offset = name_offsets[entry.name_idx];
-                let name = &self.names[entry.name_idx];
-                let length = name.len();
-                let loc = ((offset as u32) << 8) | (length as u32);
-                code.push_str(&format!("0x{:08X}", loc));
+                code.push_str("] },\n");
             }
-            code.push_str("] },\n");
+            code.push_str("];\n\n");
+        } else {
+            // ma-s 禁用时生成空数组（允许未使用代码）
+            code.push_str("#[rustfmt::skip]\n");
+            code.push_str("#[allow(dead_code)]\n");
+            code.push_str("const OUI_36_TABLES: &[OuiSubtable<u16>] = &[];\n\n");
         }
-        code.push_str("];\n\n");
 
         // 生成 OuiDb 常量
         code.push_str("/// Global static instance of OuiDb\n");
@@ -490,7 +502,11 @@ impl OuiDataBuilder {
         code.push_str("    names: OUI_NAMES,\n");
         code.push_str("    oui_24: &OUI_24_TABLE,\n");
         code.push_str("    oui_28: OUI_28_TABLES,\n");
-        code.push_str("    oui_36: OUI_36_TABLES,\n");
+        if has_ma_s {
+            code.push_str("    oui_36: OUI_36_TABLES,\n");
+        } else {
+            code.push_str("    oui_36: &[],\n");
+        }
         code.push_str("};\n");
 
         // 更新文件大小统计（替换占位符）
@@ -502,11 +518,19 @@ impl OuiDataBuilder {
         // 检查文件是否已存在且内容相同，避免不必要的写入
         let needs_write = if output_path.exists() {
             if let Ok(existing) = fs::read_to_string(output_path) {
+                // println!(
+                //     "cargo:warning=Existing {} bytes, new {} bytes",
+                //     existing.len(),
+                //     code.len()
+                // );
+
                 existing != code
             } else {
+                println!("cargo:warning=Failed to read generated file",);
                 true
             }
         } else {
+            println!("cargo:warning=Generated file does NOT exist",);
             true
         };
 
@@ -519,9 +543,17 @@ impl OuiDataBuilder {
                 code.len()
             );
         } else {
-            println!("cargo:warning=oui_data.rs is up to date, skipped");
+            println!(
+                "cargo:warning={} is up to date, skipped",
+                output_path.display()
+            );
+            return;
         }
         println!("cargo:warning=Statistics:");
+        println!(
+            "cargo:warning=  - ma-s feature: {}",
+            if has_ma_s { "enabled" } else { "disabled" }
+        );
         println!(
             "cargo:warning=  - Unique names: {}, total length: {unique_names_total_length}",
             self.names.len()
@@ -532,15 +564,27 @@ impl OuiDataBuilder {
             self.oui28_tables.len(),
             oui28_entries
         );
-        println!(
-            "cargo:warning=  - OUI-36 tables: {}, entries: {}",
-            self.oui36_tables.len(),
-            oui36_entries
-        );
-        println!(
-            "cargo:warning=  - Subtable-only prefixes: {}",
-            self.subtable_only_prefixes.len()
-        );
+        if has_ma_s {
+            let oui36_entries: usize = self.oui36_tables.iter().map(|t| t.len()).sum();
+            println!(
+                "cargo:warning=  - OUI-36 tables: {}, entries: {}",
+                self.oui36_tables.len(),
+                oui36_entries
+            );
+        } else {
+            println!("cargo:warning=  - OUI-36 tables: 0, entries: 0 (ma-s feature disabled)");
+        }
+        println!("cargo:warning=Subtable-only prefixes (no 24-bit OUI entry):");
+        for (prefix, subtable_type, entry_count) in &self.subtable_only_prefixes {
+            let type_str = match subtable_type {
+                SubtableRef::Oui28(_) => "OUI-28",
+                SubtableRef::Oui36(_) => "OUI-36",
+            };
+            println!(
+                "cargo:warning=  {:02X}{:02X}{:02X} ({}, {} entries)",
+                prefix[0], prefix[1], prefix[2], type_str, entry_count
+            );
+        }
     }
 }
 
@@ -550,30 +594,23 @@ fn main() {
     println!("cargo:rerun-if-changed={}", src);
     println!("cargo:rerun-if-changed=build.rs");
 
+    // 检测 ma-s feature 是否启用
+    let has_ma_s = std::env::var("CARGO_FEATURE_MA_S").is_ok();
+
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let input_path = Path::new(manifest_dir).join(src);
-    let output_path = Path::new(manifest_dir).join("src").join("oui_data.rs");
 
-    // 判断是否需要重新生成
-    let need_gen = if output_path.exists() {
-        let build_mtime = fs::metadata("build.rs").unwrap().modified().unwrap();
-        let src_mtime = fs::metadata(src).unwrap().modified().unwrap();
-        let dest_mtime = fs::metadata(&output_path).unwrap().modified().unwrap();
-        src_mtime > dest_mtime || build_mtime > dest_mtime // 源文件比目标新 → 需要生成
-    } else {
-        true // 目标不存在 → 必须生成
-    };
-    if !need_gen {
-        return;
-    }
+    // 输出到 OUT_DIR（Rust 标准做法）
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let output_path = Path::new(&out_dir).join("oui_data.rs");
 
     // 解析文件
     let entries = parse_nmap_file(&input_path);
 
     // 构建数据结构
     let mut builder = OuiDataBuilder::new();
-    builder.build(entries);
+    builder.build(entries, has_ma_s);
 
     // 生成代码
-    builder.generate_code(&output_path);
+    builder.generate_code(&output_path, has_ma_s);
 }

@@ -18,11 +18,12 @@ repository.workspace = true
 build = "build.rs"
 
 [features]
-default = ["std", "serde", "pnet"]
+default = ["std", "serde", "pnet", "ma-s"]
 
 std = ["pnet_base/std", "serde/std", "thiserror/std"]
 pnet = []
 serde = ["dep:serde"]
+ma-s = []
 
 [dependencies]
 pnet_base = { version = "0.35.0", default-features = false }
