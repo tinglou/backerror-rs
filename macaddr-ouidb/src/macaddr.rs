@@ -3,7 +3,7 @@ use core::ops::Sub;
 use core::str::FromStr;
 
 #[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 /// The number of bytes in an ethernet (MAC) address.
 pub const ETHER_ADDR_LEN: usize = 6;
@@ -87,6 +87,15 @@ impl MacAddress {
     pub fn octets(&self) -> [u8; 6] {
         self.0
     }
+
+    pub fn to_u64(&self) -> u64 {
+        ((self.0[0] as u64) << 40)
+            | ((self.0[1] as u64) << 32)
+            | ((self.0[2] as u64) << 24)
+            | ((self.0[3] as u64) << 16)
+            | ((self.0[4] as u64) << 8)
+            | (self.0[5] as u64)
+    }
 }
 
 impl From<[u8; 6]> for MacAddress {
@@ -118,18 +127,18 @@ impl Sub for &MacAddress {
     type Output = i64;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let self_val = ((self.0[0] as u64) << 40)
-            | ((self.0[1] as u64) << 32)
-            | ((self.0[2] as u64) << 24)
-            | ((self.0[3] as u64) << 16)
-            | ((self.0[4] as u64) << 8)
-            | (self.0[5] as u64);
-        let rhs_val = ((rhs.0[0] as u64) << 40)
-            | ((rhs.0[1] as u64) << 32)
-            | ((rhs.0[2] as u64) << 24)
-            | ((rhs.0[3] as u64) << 16)
-            | ((rhs.0[4] as u64) << 8)
-            | (rhs.0[5] as u64);
+        let self_val = self.to_u64();
+        let rhs_val = rhs.to_u64();
+        self_val as i64 - rhs_val as i64
+    }
+}
+
+impl Sub for MacAddress {
+    type Output = i64;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let self_val = self.to_u64();
+        let rhs_val = rhs.to_u64();
         self_val as i64 - rhs_val as i64
     }
 }
