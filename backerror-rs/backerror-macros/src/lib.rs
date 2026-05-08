@@ -1,9 +1,9 @@
 #![allow(unused_imports, dead_code)]
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parse_macro_input, punctuated::Punctuated, Item, ItemEnum, ItemStruct, Meta, Path, Token,
+    Item, ItemEnum, ItemStruct, Meta, Path, Token, parse_macro_input, punctuated::Punctuated,
 };
 
 /// backerror

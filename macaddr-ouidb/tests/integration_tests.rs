@@ -1,6 +1,6 @@
 //! macaddr-oui 集成测试
 
-use macaddr_ouidb::{MacAddress, OuiDb, OUI_DB};
+use macaddr_ouidb::{MacAddress, OUI_DB, OuiDb};
 
 #[test]
 fn test_mac_address_parsing() {

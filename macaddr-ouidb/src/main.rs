@@ -6,7 +6,7 @@
 //!   macaddr-oui 00:55:DA:0A:BB:CC
 //!   macaddr-oui 00-55-DA-0A-BB-CC
 
-use macaddr_ouidb::{MacAddress, OuiDb, OUI_DB};
+use macaddr_ouidb::{MacAddress, OUI_DB, OuiDb};
 use std::env;
 use std::process;
 
